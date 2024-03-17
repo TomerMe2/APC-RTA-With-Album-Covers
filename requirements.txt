@@ -7,3 +7,4 @@ tables==3.7.0
 psutil==5.9.4
 pympler==1.0.1
 seaborn==0.12.1
+spotipy==2.23.0
