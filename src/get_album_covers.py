@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 from typing import List
 from functools import partial
+import argparse
 
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -10,18 +11,12 @@ from PIL import Image
 from io import BytesIO
 from tqdm.contrib.concurrent import process_map
 
-DATA_PATH = '/sise/home/tomerlao/datasets/spotify_million_playlist_dataset/spotify_million_playlist_dataset/data/'
-# DATA_PATH = r'C:\university\rec_sys\spotify_million_dataset\data'
-OUTPUT_PATH = '/sise/home/tomerlao/datasets/spotify_million_playlist_dataset/spotify_million_playlist_dataset/album_covers/'
-# OUTPUT_PATH = r'C:\university\rec_sys\spotify_million_dataset\album_covers'
 API_BATCH_SIZE = 20  # the maximal batch size for the Spotify API
 IMG_FILE_EXTENSION = '.png'
-# TODO: JSON 295 AND 296 IS PROBLEMATIC. RUN IT AGAIN.
-START_FROM_FILE = 0
 
 
-def get_all_files():
-    return sorted(list(Path(DATA_PATH).glob('*.json')))
+def get_all_files(data_path: str):
+    return sorted(list(Path(data_path).glob('*.json')))
 
 
 def get_album_covers_uris(file: Path):
@@ -59,7 +54,7 @@ def resize_and_pad_image(image, target_size):
     return padded_image
 
 
-def download_and_save_album_covers(start_index: int, album_ids: List[str], sp: spotipy.Spotify):
+def download_and_save_album_covers(start_index: int, album_ids: List[str], sp: spotipy.Spotify, output_path: Path):
     batch_ids = album_ids[start_index:start_index + API_BATCH_SIZE]
     albums = sp.albums(batch_ids)['albums']
 
@@ -76,40 +71,51 @@ def download_and_save_album_covers(start_index: int, album_ids: List[str], sp: s
                 image_data = BytesIO(response.content)
                 image = Image.open(image_data)
                 image = resize_and_pad_image(image, (224, 224))
-                image.save(Path(OUTPUT_PATH) / (album['id'] + IMG_FILE_EXTENSION))
+                image.save(output_path / (album['id'] + IMG_FILE_EXTENSION))
 
 
-def get_album_covers(album_ids: List[str], json_file_idx: int):
-    client_credentials_manager = SpotifyClientCredentials(client_id='',
-                                                          client_secret='')
+def get_album_covers(album_ids: List[str], json_file_idx: int, spotify_client_id: str, spotify_client_secret: str,
+                     output_path: Path):
+    client_credentials_manager = SpotifyClientCredentials(client_id=spotify_client_id,
+                                                          client_secret=spotify_client_secret)
     sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
-    func = partial(download_and_save_album_covers, album_ids=album_ids, sp=sp)
+    func = partial(download_and_save_album_covers, album_ids=album_ids, sp=sp, output_path=output_path)
     process_map(func, range(0, len(album_ids), API_BATCH_SIZE),
                 chunksize=1, desc=f'Downloading Covers of File {json_file_idx}', max_workers=26)
 
 
-def process_album_covers_of_file(file: Path, file_idx: int):
+def process_album_covers_of_file(file: Path, file_idx: int, spotify_client_id: str, spotify_client_secret: str,
+                                 output_path: Path):
     album_covers_uris = get_album_covers_uris(file)
     album_covers_ids = [uri.split(':')[-1] for uri in album_covers_uris]
 
     # Remove duplicates
     album_covers_ids = list(set(album_covers_ids))
-    downloaded_albums = set([file.stem for file in Path(OUTPUT_PATH).glob('*' + IMG_FILE_EXTENSION)])
+    downloaded_albums = set([file.stem for file in Path(output_path).glob('*' + IMG_FILE_EXTENSION)])
     # Remove album covers that have already been downloaded
     album_covers_ids = [album_id for album_id in album_covers_ids if album_id not in downloaded_albums]
 
-    get_album_covers(album_covers_ids, file_idx)
+    get_album_covers(album_covers_ids, file_idx, spotify_client_id, spotify_client_secret, output_path)
 
 
-def main():
-    output_path = Path(OUTPUT_PATH)
+def main(spotify_client_id: str, spotify_client_secret: str, data_path: str, output_path: str, start_from_file: int):
+    output_path = Path(output_path)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    all_files = list(get_all_files())[START_FROM_FILE:]
+    all_files = list(get_all_files(data_path))[start_from_file:]
     for idx, file in enumerate(all_files):
-        process_album_covers_of_file(file, idx + START_FROM_FILE)
+        process_album_covers_of_file(file, idx + start_from_file, spotify_client_id, spotify_client_secret, output_path)
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--spotify_client_id", type=str, required=True, help="Spotify client ID")
+    parser.add_argument("--spotify_client_secret", type=str, required=True, help="Spotify client secret")
+    parser.add_argument("--data_path", type=str, required=True, help="Path to the MPD unzipped jsons data")
+    parser.add_argument("--output_path", type=str, required=True, help="Path to save album covers")
+    parser.add_argument("--start_from_file", type=int, required=False, default=0,
+                        help="Start processing from this file index, useful when resuming from a halt by Spotify API")
+    args = parser.parse_args()
+    main(parser.spotify_client_id, parser.spotify_client_secret, parser.data_path, parser.output_path,
+         parser.start_from_file)
