@@ -1,8 +1,9 @@
 from .base_representer import BaseEmbeddingRepresenter
 from src.rta.utils import mean_FM
 
+
 class FMRepresenter(BaseEmbeddingRepresenter):
-        
+
     def forward(self, x):
         albs = self.song_album[x]
         arts = self.song_artist[x]

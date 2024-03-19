@@ -35,8 +35,8 @@ total_descriptions = 0
 ntitles = set()
 n_playlists = 1000000
 n_tracks = 2262292
-playlist_track = lil_matrix((n_playlists, n_tracks), dtype=np.int32) # to build interaction matrix of binary value
-tracks_info = {} # to keep base infos on tracks
+playlist_track = lil_matrix((n_playlists, n_tracks), dtype=np.int32)  # to build interaction matrix of binary value
+tracks_info = {}  # to keep base infos on tracks
 title_histogram = collections.Counter()
 artist_histogram = collections.Counter()
 track_histogram = collections.Counter()
@@ -66,10 +66,10 @@ def process_mpd(raw_path, out_path):
             for playlist in mpd_slice["playlists"]:
                 process_playlist(playlist)
             count += 1
-            seqfile = open('%s/playlists_seq.csv' % out_path, 'a', newline ='')
+            seqfile = open('%s/playlists_seq.csv' % out_path, 'a', newline='')
             with seqfile:
-              write = csv.writer(seqfile) 
-              write.writerows(playlists_list)  
+                write = csv.writer(seqfile)
+                write.writerows(playlists_list)
 
             if quick and count > max_files_for_quick_processing:
                 break
@@ -157,35 +157,36 @@ def process_playlist(playlist):
     playlist_track_count = 0
     playlist_seq = []
     for track in playlist["tracks"]:
-      full_name = track["track_uri"].lstrip("spotify:track:")
-      if full_name not in tracks_info :
-        del track["pos"]
-        tracks_info[full_name] = track
-        unique_track_count += 1
-        tracks_info[full_name]["id"] = unique_track_count - 1
-        tracks_info[full_name]["count"] = 1
-      elif playlist_track[playlist_id, tracks_info[full_name]["id"]] != 0 :
-        # remove tracks that are already earlier in the playlist
-        continue
-      else :
-        tracks_info[full_name]["count"] += 1
-      total_tracks += 1
-      albums.add(track["album_uri"])
-      tracks.add(track["track_uri"])
-      artists.add(track["artist_uri"])
-      artist_histogram[track["artist_name"]] += 1
-      track_histogram[full_name] += 1
-      track_id = tracks_info[full_name]["id"]
-      playlist_track_count += 1
-      playlist_track[playlist_id, track_id] = playlist_track_count
-      playlist_seq.append(str(track_id))
+        full_name = track["track_uri"].lstrip("spotify:track:")
+        if full_name not in tracks_info:
+            del track["pos"]
+            tracks_info[full_name] = track
+            unique_track_count += 1
+            tracks_info[full_name]["id"] = unique_track_count - 1
+            tracks_info[full_name]["count"] = 1
+        elif playlist_track[playlist_id, tracks_info[full_name]["id"]] != 0:
+            # remove tracks that are already earlier in the playlist
+            continue
+        else:
+            tracks_info[full_name]["count"] += 1
+        total_tracks += 1
+        albums.add(track["album_uri"])
+        tracks.add(track["track_uri"])
+        artists.add(track["artist_uri"])
+        artist_histogram[track["artist_name"]] += 1
+        track_histogram[full_name] += 1
+        track_id = tracks_info[full_name]["id"]
+        playlist_track_count += 1
+        playlist_track[playlist_id, track_id] = playlist_track_count
+        playlist_seq.append(str(track_id))
     playlists_list.append(playlist_seq)
 
 
 def process_info(_):
     pass
 
-def process_album_artist( tracks_info, out_path):
+
+def process_album_artist(tracks_info, out_path):
     artist_songs = defaultdict(list)  # a dict where keys are artist ids and values are list of corresponding songs
     album_songs = defaultdict(list)  # a dict where keys are album ids and values are list of corresponding songs
     song_album = np.zeros(n_tracks)  # a 1-D array where the index is the track id and the value is the album id
@@ -219,28 +220,30 @@ def process_album_artist( tracks_info, out_path):
     np.save('%s/song_album' % out_path, song_album)
     np.save('%s/song_artist' % out_path, song_artist)
     with open("%s/album_ids.pkl" % out_path, 'wb+') as f:
-      pickle.dump(album_ids, f)
+        pickle.dump(album_ids, f)
 
     with open("%s/artist_ids.pkl" % out_path, 'wb+') as f:
-      pickle.dump(artist_ids, f)
+        pickle.dump(artist_ids, f)
 
     with open("%s/artist_songs.pkl" % out_path, 'wb+') as f:
-      pickle.dump(artist_songs, f)
+        pickle.dump(artist_songs, f)
 
     with open("%s/album_songs.pkl" % out_path, 'wb+') as f:
-      pickle.dump(album_songs, f)
+        pickle.dump(album_songs, f)
 
     with open("%s/artist_names.pkl" % out_path, 'wb+') as f:
-      pickle.dump(artist_names, f)
+        pickle.dump(artist_names, f)
 
     with open("%s/album_names.pkl" % out_path, 'wb+') as f:
-      pickle.dump(album_names, f)
+        pickle.dump(album_names, f)
     return
+
 
 def create_initial_embeddings(data_manager):
     print("Creating initial song embeddings")
     mf_model = MatrixFactorizationModel(data_manager, retrain=True, emb_size=128)
     return
+
 
 def create_side_embeddings(data_manager):
     buckets_dur = data_manager.get_duration_bucket(data_manager.song_duration)
@@ -254,14 +257,16 @@ def create_side_embeddings(data_manager):
     for ind, b in enumerate(buckets_pop):
         buckets_pop_dict[b].append(ind)
 
-    print([len(v) for k,v in buckets_pop_dict.items()])
+    print([len(v) for k, v in buckets_pop_dict.items()])
     # Create metadata initial embedding
     song_embeddings = np.load(data_manager.song_embeddings_path)
     print("Creating album embeddings")
-    alb_embeddings = np.asarray([song_embeddings[data_manager.album_songs[i]].mean(axis=0) for i in tqdm.tqdm(range(len(data_manager.album_songs)))])
+    alb_embeddings = np.asarray([song_embeddings[data_manager.album_songs[i]].mean(axis=0) for i in
+                                 tqdm.tqdm(range(len(data_manager.album_songs)))])
     print("Creating artist embeddings")
 
-    art_embeddings = np.asarray([song_embeddings[data_manager.artist_songs[i]].mean(axis=0) for i in tqdm.tqdm(range(len(data_manager.artist_songs)))])
+    art_embeddings = np.asarray([song_embeddings[data_manager.artist_songs[i]].mean(axis=0) for i in
+                                 tqdm.tqdm(range(len(data_manager.artist_songs)))])
 
     pop_embeddings = np.asarray(
         [song_embeddings[buckets_pop_dict[i]].mean(axis=0) for i in tqdm.tqdm(range(len(buckets_pop_dict)))])
@@ -275,23 +280,22 @@ def create_side_embeddings(data_manager):
     np.save(data_manager.pop_embeddings_path, pop_embeddings)
     np.save(data_manager.dur_embeddings_path, dur_embeddings)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mpd_path", type=str, required=False, default="../MPD/data",
-                             help = "Path to MPD")
+                        help="Path to MPD")
     parser.add_argument("--out_path", type=str, required=False, default="resources/data/rta_input",
-                             help = "Path to rta input")
+                        help="Path to rta input")
     args = parser.parse_args()
     os.makedirs(args.out_path, exist_ok=True)
     os.makedirs("resources/models", exist_ok=True)
     process_mpd(args.mpd_path, args.out_path)
     save_npz('%s/playlist_track.npz' % args.out_path, playlist_track.tocsr(False))
     with open('%s/tracks_info.json' % args.out_path, 'w') as fp:
-      json.dump(tracks_info, fp, indent=4)
+        json.dump(tracks_info, fp, indent=4)
     process_album_artist(tracks_info, args.out_path)
     data_manager = DataManager()
     print(data_manager.binary_train_set)
     create_initial_embeddings(data_manager)
     create_side_embeddings(data_manager)
-
-

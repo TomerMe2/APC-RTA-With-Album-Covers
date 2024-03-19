@@ -7,31 +7,35 @@ import os
 import tqdm
 from matplotlib.ticker import FormatStrFormatter
 
+
 def confidence_interval(metrics):
     # Compute 95% confidence interval
     n = metrics.shape[0]
     std = metrics.std()
-    return 1.96 * (std/np.sqrt(n))
+    return 1.96 * (std / np.sqrt(n))
+
 
 def create_grouping_matrix():
     # Multiplying by this matrix gives a grouped average over 1000 rows.
     # Useful for averaging over test playlists with the same n_seed
     M = np.zeros((10000, 10))
-    kernel = np.ones((1,1000))/ 1000
+    kernel = np.ones((1, 1000)) / 1000
     for i in range(10):
-      M[1000*i: 1000* (i+1), i] = kernel
+        M[1000 * i: 1000 * (i + 1), i] = kernel
     return M
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--metric", type = str, required = True,
-                    help = "metric to compute")
-    parser.add_argument("--recos_path", type = str, required = False,
-                    help = "path to recos", default="resources/recos")
-    parser.add_argument("--plots_path", type = str, required = False,
-                    help = "path to plots", default="resources/plots")
-    parser.add_argument("--models", type = str, required = False,
-                    help = "comma separated names of models to evaluate", default="SKNN,VSKNN,STAN,VSTAN,MF-AVG,MF-CNN,MF-GRU,MF-Transformer,FM-Transformer,NN-Transformer")
+    parser.add_argument("--metric", type=str, required=True,
+                        help="metric to compute")
+    parser.add_argument("--recos_path", type=str, required=False,
+                        help="path to recos", default="resources/recos")
+    parser.add_argument("--plots_path", type=str, required=False,
+                        help="path to plots", default="resources/plots")
+    parser.add_argument("--models", type=str, required=False,
+                        help="comma separated names of models to evaluate",
+                        default="SKNN,VSKNN,STAN,VSTAN,MF-AVG,MF-CNN,MF-GRU,MF-Transformer,FM-Transformer,NN-Transformer")
 
     args = parser.parse_args()
     model_names = args.models.split(",")
@@ -52,7 +56,7 @@ if __name__ == "__main__":
             precs = 100 * test_evaluator.compute_all_precisions(rec).dot(M)
             recalls = 100 * test_evaluator.compute_all_recalls(rec).dot(M)
             R_precs = 100 * test_evaluator.compute_all_R_precisions(rec).dot(M)
-            ndcgs = 100 *test_evaluator.compute_all_ndcgs(rec).dot(M)
+            ndcgs = 100 * test_evaluator.compute_all_ndcgs(rec).dot(M)
             clicks = test_evaluator.compute_all_clicks(rec).dot(M)
             norm_pop = 100 * test_evaluator.compute_norm_pop(rec).dot(M)
             sns.lineplot(ax=axes[0, 0], x=data_manager.N_SEED_SONGS, y=precs, label=m, markers=True, linewidth=2.0,
@@ -96,7 +100,7 @@ if __name__ == "__main__":
             m = model_names[i]
             rec = recos[i]
 
-            if args.metric== "coverage": # coverage can not be averaged so no confidence interval
+            if args.metric == "coverage":  # coverage can not be averaged so no confidence interval
                 metrics = test_evaluator.compute_cov(rec)
                 print("%s: %.4f" % (m, np.mean(metrics)))
             else:
@@ -110,7 +114,7 @@ if __name__ == "__main__":
                     metrics = test_evaluator.compute_all_precisions(rec)
                 if args.metric == "r-precision":
                     metrics = test_evaluator.compute_all_R_precisions(rec)
-                if args.metric== "popularity":
+                if args.metric == "popularity":
                     metrics = test_evaluator.compute_norm_pop(rec)
                 alpha = confidence_interval(metrics)
                 lower = np.mean(metrics) - alpha
@@ -124,5 +128,5 @@ if __name__ == "__main__":
                 plt.xticks(fontsize=12, ticks=data_manager.N_SEED_SONGS)
                 plt.yticks(fontsize=12)
                 plt.legend(loc="best")
-                plt.savefig("%s/%s.pdf" % (args.plots_path, args.metric), bbox_inches = "tight")
+                plt.savefig("%s/%s.pdf" % (args.plots_path, args.metric), bbox_inches="tight")
                 plt.show()

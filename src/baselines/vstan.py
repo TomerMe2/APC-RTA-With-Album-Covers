@@ -13,6 +13,7 @@ from datetime import datetime as dt
 from datetime import timedelta as td
 import math
 
+
 class VSKNN_STAN:
     '''
     STAN( k,  sample_size=5000, sampling='recent', remind=True, extend=False, lambda_spw=1.02, lambda_snh=5, lambda_inh=2.05 , session_key = 'SessionId', item_key= 'ItemId', time_key= 'Time' )
@@ -43,41 +44,43 @@ class VSKNN_STAN:
         Header of the timestamp column in the input file. (default: 'Time')
     '''
 
-    def __init__( self, k, sample_size=5000, sampling='recent', remind=True, extend=False, similarity='cosine', lambda_spw=1.02, lambda_snh=5, lambda_inh=2.05, lambda_ipw=1.02, lambda_idf=5, session_key = 'SessionId', item_key= 'ItemId', time_key= 'Time' ):
-       
+    def __init__(self, k, sample_size=5000, sampling='recent', remind=True, extend=False, similarity='cosine',
+                 lambda_spw=1.02, lambda_snh=5, lambda_inh=2.05, lambda_ipw=1.02, lambda_idf=5, session_key='SessionId',
+                 item_key='ItemId', time_key='Time'):
+
         self.k = k
         self.sample_size = sample_size
         self.sampling = sampling
-        
+
         self.similarity = similarity
-        
+
         self.lambda_spw = lambda_spw
-        self.lambda_snh = lambda_snh * 24 * 3600 #in days
+        self.lambda_snh = lambda_snh * 24 * 3600  # in days
         self.lambda_inh = lambda_inh
-        
+
         self.lambda_ipw = lambda_ipw
         self.lambda_idf = lambda_idf
-        
+
         self.session_key = session_key
         self.item_key = item_key
         self.time_key = time_key
-        
+
         self.extend = extend
         self.remind = remind
-        
-        #updated while recommending
+
+        # updated while recommending
         self.session = -1
         self.session_items = []
         self.relevant_sessions = set()
 
         # cache relations once at startup
-        self.session_item_map = dict() 
+        self.session_item_map = dict()
         self.item_session_map = dict()
         self.session_time = dict()
         self.min_time = -1
-        
+
         self.sim_time = 0
-        
+
     def fit(self, train, test=None, items=None):
         '''
         Trains the predictor.
@@ -88,52 +91,53 @@ class VSKNN_STAN:
             Training data. It contains the transactions of the sessions. It has one column for session IDs, one for item IDs and one for the timestamp of the events (unix timestamps).
             It must have a header. Column names are arbitrary, but must correspond to the ones you set during the initialization of the network (session_key, item_key, time_key properties).
             
-        '''            
+        '''
         self.num_items = train[self.item_key].max()
-        
-        index_session = train.columns.get_loc( self.session_key )
-        index_item = train.columns.get_loc( self.item_key )
-        index_time = train.columns.get_loc( self.time_key )
-        
+
+        index_session = train.columns.get_loc(self.session_key)
+        index_item = train.columns.get_loc(self.item_key)
+        index_time = train.columns.get_loc(self.time_key)
+
         session = -1
         session_items = []
         time = -1
-        #cnt = 0
+        # cnt = 0
         for row in train.itertuples(index=False):
             # cache items of sessions
             if row[index_session] != session:
                 if len(session_items) > 0:
-                    self.session_item_map.update({session : session_items})
+                    self.session_item_map.update({session: session_items})
                     # cache the last time stamp of the session
-                    self.session_time.update({session : time})
+                    self.session_time.update({session: time})
                     if time < self.min_time:
                         self.min_time = time
                 session = row[index_session]
                 session_items = []
             time = row[index_time]
             session_items.append(row[index_item])
-            
+
             # cache sessions involving an item
-            map_is = self.item_session_map.get( row[index_item] )
+            map_is = self.item_session_map.get(row[index_item])
             if map_is is None:
                 map_is = set()
-                self.item_session_map.update({row[index_item] : map_is})
+                self.item_session_map.update({row[index_item]: map_is})
             map_is.add(row[index_session])
-            
+
         # Add the last tuple    
-        self.session_item_map.update({session : session_items})
-        self.session_time.update({session : time})
-        
-        if self.lambda_idf is not None: 
+        self.session_item_map.update({session: session_items})
+        self.session_time.update({session: time})
+
+        if self.lambda_idf is not None:
             self.idf = pd.DataFrame()
-            self.idf['idf'] = train.groupby( self.item_key ).size()
-            self.idf['idf'] = np.log( train[self.session_key].nunique() / self.idf['idf'] )
+            self.idf['idf'] = train.groupby(self.item_key).size()
+            self.idf['idf'] = np.log(train[self.session_key].nunique() / self.idf['idf'])
             self.idf = self.idf['idf'].to_dict()
-        
-        if self.sample_size == 0: #use all session as possible neighbors
+
+        if self.sample_size == 0:  # use all session as possible neighbors
             print('!!!!! runnig KNN without a sample size (check config)')
-        
-    def predict_next( self, session_id, input_item_id, predict_for_item_ids, input_user_id=None, timestamp=0, skip=False, type='view'):
+
+    def predict_next(self, session_id, input_item_id, predict_for_item_ids, input_user_id=None, timestamp=0, skip=False,
+                     type='view'):
         '''
         Gives predicton scores for a selected set of items on how likely they be the next item in the session.
                 
@@ -152,49 +156,49 @@ class VSKNN_STAN:
             Prediction scores for selected items on how likely to be the next item of this session. Indexed by the item IDs.
         
         '''
-        
-#         gc.collect()
-#         process = psutil.Process(os.getpid())
-#         print( 'cknn.predict_next: ', process.memory_info().rss, ' memory used')
-        
-        if( self.session != session_id ): #new session
-            
-            if( self.extend ):
+
+        #         gc.collect()
+        #         process = psutil.Process(os.getpid())
+        #         print( 'cknn.predict_next: ', process.memory_info().rss, ' memory used')
+
+        if (self.session != session_id):  # new session
+
+            if (self.extend):
                 self.session_item_map[self.session] = self.session_items;
                 for item in self.session_items:
-                    map_is = self.item_session_map.get( item )
+                    map_is = self.item_session_map.get(item)
                     if map_is is None:
                         map_is = set()
-                        self.item_session_map.update({item : map_is})
+                        self.item_session_map.update({item: map_is})
                     map_is.add(self.session)
-                    
+
                 ts = time.time()
-                self.session_time.update({self.session : ts})
-                
+                self.session_time.update({self.session: ts})
+
             self.session = session_id
             self.session_items = list()
             self.relevant_sessions = set()
-        
+
         if type == 'view':
-            self.session_items.append( input_item_id )
-        
+            self.session_items.append(input_item_id)
+
         if skip:
             return
-         
-        neighbors = self.find_neighbors( self.session_items, input_item_id, session_id, timestamp )
-        scores = self.score_items( neighbors, self.session_items, timestamp )
-        
+
+        neighbors = self.find_neighbors(self.session_items, input_item_id, session_id, timestamp)
+        scores = self.score_items(neighbors, self.session_items, timestamp)
+
         # Create things in the format ..
         predictions = np.zeros(len(predict_for_item_ids))
-        mask = np.in1d( predict_for_item_ids, list(scores.keys()) )
-        
+        mask = np.in1d(predict_for_item_ids, list(scores.keys()))
+
         items = predict_for_item_ids[mask]
         values = [scores[x] for x in items]
         predictions[mask] = values
         series = pd.Series(data=predictions, index=predict_for_item_ids)
-        
-        return series 
-    
+
+        return series
+
     def vec(self, current, neighbor, pos_map):
         '''
         Calculates the ? for 2 sessions
@@ -212,11 +216,11 @@ class VSKNN_STAN:
         vp_sum = 0
         for i in intersection:
             vp_sum += pos_map[i]
-        
+
         result = vp_sum / len(pos_map)
 
         return result
-    
+
     def cosine(self, current, neighbor, pos_map):
         '''
         Calculates the cosine similarity for two sessions
@@ -230,12 +234,12 @@ class VSKNN_STAN:
         --------
         out : float value           
         '''
-                
+
         lneighbor = len(neighbor)
         intersection = current & neighbor
-        
+
         if pos_map is not None:
-            
+
             vp_sum = 0
             current_sum = 0
             for i in current:
@@ -243,14 +247,13 @@ class VSKNN_STAN:
                 if i in intersection:
                     vp_sum += pos_map[i]
         else:
-            vp_sum = len( intersection )
-            current_sum = len( current )
-                
+            vp_sum = len(intersection)
+            current_sum = len(current)
+
         result = vp_sum / (sqrt(current_sum) * sqrt(lneighbor))
-        
+
         return result
-    
-    
+
     def items_for_session(self, session):
         '''
         Returns all items in the session
@@ -264,7 +267,7 @@ class VSKNN_STAN:
         out : set           
         '''
         return self.session_item_map.get(session);
-    
+
     def sessions_for_item(self, item_id):
         '''
         Returns all session for an item
@@ -277,10 +280,9 @@ class VSKNN_STAN:
         --------
         out : set           
         '''
-        return self.item_session_map.get( item_id ) if item_id in self.item_session_map else set()
-        
-        
-    def most_recent_sessions( self, sessions, number ):
+        return self.item_session_map.get(item_id) if item_id in self.item_session_map else set()
+
+    def most_recent_sessions(self, sessions, number):
         '''
         Find the most recent sessions in the given set
         
@@ -296,27 +298,26 @@ class VSKNN_STAN:
 
         tuples = list()
         for session in sessions:
-            time = self.session_time.get( session )
+            time = self.session_time.get(session)
             if time is None:
                 print(' EMPTY TIMESTAMP!! ', session)
             tuples.append((session, time))
-            
+
         tuples = sorted(tuples, key=itemgetter(1), reverse=True)
-        #print 'sorted list ', sortedList
+        # print 'sorted list ', sortedList
         cnt = 0
         for element in tuples:
             cnt = cnt + 1
             if cnt > number:
                 break
-            sample.add( element[0] )
-        #print 'returning sample of size ', len(sample)
+            sample.add(element[0])
+        # print 'returning sample of size ', len(sample)
         return sample
 
-
-    #-----------------
+    # -----------------
     # Find a set of neighbors, returns a list of tuples (sessionid: similarity) 
-    #-----------------
-    def find_neighbors( self, session_items, input_item_id, session_id, timestamp ):
+    # -----------------
+    def find_neighbors(self, session_items, input_item_id, session_id, timestamp):
         '''
         Finds the k nearest neighbors for the given session_id and the current item input_item_id. 
         
@@ -330,15 +331,14 @@ class VSKNN_STAN:
         --------
         out : list of tuple (session_id, similarity)           
         '''
-        possible_neighbors = self.possible_neighbor_sessions( session_items, input_item_id, session_id )
-        possible_neighbors = self.calc_similarity( session_items, possible_neighbors, timestamp )
-        
-        possible_neighbors = sorted( possible_neighbors, reverse=True, key=lambda x: x[1] )
+        possible_neighbors = self.possible_neighbor_sessions(session_items, input_item_id, session_id)
+        possible_neighbors = self.calc_similarity(session_items, possible_neighbors, timestamp)
+
+        possible_neighbors = sorted(possible_neighbors, reverse=True, key=lambda x: x[1])
         possible_neighbors = possible_neighbors[:self.k]
-        
+
         return possible_neighbors
-    
-    
+
     def possible_neighbor_sessions(self, session_items, input_item_id, session_id):
         '''
         Find a set of session to later on find neighbors in.
@@ -354,31 +354,30 @@ class VSKNN_STAN:
         --------
         out : set           
         '''
-        
-        self.relevant_sessions = self.relevant_sessions | self.sessions_for_item( input_item_id )
-               
-        if self.sample_size == 0: #use all session as possible neighbors
-            
-            #print('!!!!! runnig KNN without a sample size (check config)')
+
+        self.relevant_sessions = self.relevant_sessions | self.sessions_for_item(input_item_id)
+
+        if self.sample_size == 0:  # use all session as possible neighbors
+
+            # print('!!!!! runnig KNN without a sample size (check config)')
             return self.relevant_sessions
 
-        else: #sample some sessions
-                         
+        else:  # sample some sessions
+
             if len(self.relevant_sessions) > self.sample_size:
-                
+
                 if self.sampling == 'recent':
-                    sample = self.most_recent_sessions( self.relevant_sessions, self.sample_size )
+                    sample = self.most_recent_sessions(self.relevant_sessions, self.sample_size)
                 elif self.sampling == 'random':
-                    sample = random.sample( self.relevant_sessions, self.sample_size )
+                    sample = random.sample(self.relevant_sessions, self.sample_size)
                 else:
                     sample = self.relevant_sessions[:self.sample_size]
-                    
-                return sample
-            else: 
-                return self.relevant_sessions
-                        
 
-    def calc_similarity(self, session_items, sessions, timestamp ):
+                return sample
+            else:
+                return self.relevant_sessions
+
+    def calc_similarity(self, session_items, sessions, timestamp):
         '''
         Calculates the configured similarity for the items in session_items and each session in sessions.
         
@@ -391,47 +390,47 @@ class VSKNN_STAN:
         --------
         out : list of tuple (session_id,similarity)           
         '''
-        
+
         pos_map = None
         if self.lambda_spw:
             pos_map = {}
-        length = len( session_items )
-        
+        length = len(session_items)
+
         pos = 1
         for item in session_items:
-            if self.lambda_spw is not None: 
-                pos_map[item] = self.session_pos_weight( pos, length, self.lambda_spw )
+            if self.lambda_spw is not None:
+                pos_map[item] = self.session_pos_weight(pos, length, self.lambda_spw)
                 pos += 1
-            
-        #print 'nb of sessions to test ', len(sessionsToTest), ' metric: ', self.metric
+
+        # print 'nb of sessions to test ', len(sessionsToTest), ' metric: ', self.metric
         items = set(session_items)
         neighbors = []
         cnt = 0
         for session in sessions:
             cnt = cnt + 1
             # get items of the session, look up the cache first 
-            n_items = self.items_for_session( session )
+            n_items = self.items_for_session(session)
 
-            similarity = self.cosine(items, set(n_items), pos_map) 
-                            
+            similarity = self.cosine(items, set(n_items), pos_map)
+
             if self.lambda_snh is not None:
                 sts = self.session_time[session]
                 decay = self.session_time_weight(timestamp, sts, self.lambda_snh)
-                
+
                 similarity *= decay
-                            
+
             neighbors.append((session, similarity))
-                
+
         return neighbors
-    
+
     def session_pos_weight(self, position, length, lambda_spw):
         diff = position - length
-        return exp( diff / lambda_spw )
-    
+        return exp(diff / lambda_spw)
+
     def session_time_weight(self, ts_current, ts_neighbor, lambda_snh):
         diff = ts_current - ts_neighbor
-        return exp( - diff / lambda_snh )
-            
+        return exp(- diff / lambda_snh)
+
     def score_items(self, neighbors, current_session, timestamp):
         '''
         Compute a set of scores for all items given a set of neighbors.
@@ -446,62 +445,62 @@ class VSKNN_STAN:
         '''
         # now we have the set of relevant items to make predictions
         scores = dict()
-        s_items = set( current_session )
+        s_items = set(current_session)
         # iterate over the sessions
         for session in neighbors:
             # get the items in this session
-            n_items = self.items_for_session( session[0] )
-            
+            n_items = self.items_for_session(session[0])
+
             pos_last = {}
             pos_i_star = None
-            for i in range( len( n_items ) ):
-                if n_items[i] in s_items: 
+            for i in range(len(n_items)):
+                if n_items[i] in s_items:
                     pos_i_star = i + 1
                 pos_last[n_items[i]] = i + 1
-            
-            n_items = set( n_items )
-            
+
+            n_items = set(n_items)
+
             if self.lambda_ipw is not None:
-                
-                for i in range( len( current_session ) ):
+
+                for i in range(len(current_session)):
                     if current_session[i] in n_items:
-                        ipw_decay = self.session_pos_weight(i+1, len( current_session ), self.lambda_ipw)       
-            
+                        ipw_decay = self.session_pos_weight(i + 1, len(current_session), self.lambda_ipw)
+
             for item in n_items:
-                
+
                 if not self.remind and item in s_items:
                     continue
-                
-                old_score = scores.get( item )
-                
+
+                old_score = scores.get(item)
+
                 new_score = session[1]
-                
-                if self.lambda_inh is not None: 
-                    new_score = new_score * self.item_pos_weight( pos_last[item], pos_i_star, self.lambda_inh )
-                    
+
+                if self.lambda_inh is not None:
+                    new_score = new_score * self.item_pos_weight(pos_last[item], pos_i_star, self.lambda_inh)
+
                 if self.lambda_idf is not None:
-                    new_score = new_score + ( new_score * self.idf[item] * self.lambda_idf )
-                
+                    new_score = new_score + (new_score * self.idf[item] * self.lambda_idf)
+
                 if self.lambda_ipw is not None:
                     new_score = new_score * ipw_decay
-                
+
                 if not old_score is None:
                     new_score = old_score + new_score
-                    
-                scores.update({item : new_score})
-                    
+
+                scores.update({item: new_score})
+
         return scores
-    
+
     def item_pos_weight(self, pos_candidate, pos_item, lambda_inh):
-        diff = abs( pos_candidate - pos_item )
-        return exp( - diff / lambda_inh )
-    
+        diff = abs(pos_candidate - pos_item)
+        return exp(- diff / lambda_inh)
+
     def clear(self):
         self.session = -1
         self.session_items = []
         self.relevant_sessions = set()
 
-        self.session_item_map = dict() 
+        self.session_item_map = dict()
         self.item_session_map = dict()
         self.session_time = dict()
 
