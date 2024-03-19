@@ -28,7 +28,13 @@ def create_embeddings(images_dir: str, out_path: str, clip_model, clip_processor
 
     for start_idx in tqdm(range(0, len(images_paths), batch_size)):
         batch_image_paths = images_paths[start_idx: start_idx + batch_size]
-        batch_images = [Image.open(str(image_path)) for image_path in batch_image_paths]
+        batch_images = []
+        for image_path in batch_image_paths:
+            try:
+                image = Image.open(str(image_path))
+                batch_images.append(image)
+            except Exception as e:
+                print(f"Error opening image {image_path}, with exeption: {e}")
 
         # Process the image for each model
         clip_inputs = clip_processor(images=batch_images, return_tensors="pt", device=device)
