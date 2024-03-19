@@ -1,5 +1,6 @@
 from pathlib import Path
 import argparse
+from collections import Counter
 
 from transformers import CLIPProcessor, CLIPModel, AutoImageProcessor, AutoModel
 from PIL import Image
@@ -16,12 +17,15 @@ def save_embeddings(embeddings, image_paths, out_path, subdir):
 
 def create_embeddings(images_dir: str, out_path: str, clip_model, clip_processor, dino_model, dino_processor,
                       batch_size, device):
-
     images_paths = list(Path(images_dir).glob('*.png'))
     out_path = Path(out_path)
     out_path.mkdir(parents=True, exist_ok=True)
     (out_path / 'clip').mkdir(parents=True, exist_ok=True)
     (out_path / 'dinov2').mkdir(parents=True, exist_ok=True)
+
+    existing_file_names = Counter(list([path.stem for path in list(out_path.glob('**/*.npy'))]))
+    images_paths = [path for path in images_paths if path.stem not in existing_file_names or \
+                    (path.stem in existing_file_names and existing_file_names[path.stem] == 1)]
 
     clip_model.to(device)
     dino_model.to(device)
