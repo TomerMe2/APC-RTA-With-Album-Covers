@@ -117,5 +117,5 @@ if __name__ == '__main__':
     parser.add_argument("--start_from_file", type=int, required=False, default=0,
                         help="Start processing from this file index, useful when resuming from a halt by Spotify API")
     args = parser.parse_args()
-    main(parser.spotify_client_id, parser.spotify_client_secret, parser.data_path, parser.output_path,
-         parser.start_from_file)
+    main(args.spotify_client_id, args.spotify_client_secret, args.data_path, args.output_path,
+         args.start_from_file)
