@@ -36,6 +36,8 @@ if __name__ == "__main__":
     parser.add_argument("--models", type=str, required=False,
                         help="comma separated names of models to evaluate",
                         default="SKNN,VSKNN,STAN,VSTAN,MF-AVG,MF-CNN,MF-GRU,MF-Transformer,FM-Transformer,NN-Transformer")
+    parser.add_argument('--data_manager_path', type=str, required=True,
+                        help='Path to the data manager data, the folder should "embeddings" and "data_split" folders.')
 
     args = parser.parse_args()
     model_names = args.models.split(",")
@@ -45,7 +47,7 @@ if __name__ == "__main__":
     sns.set()
     sns.set_palette("bright")
     cp = sns.color_palette()
-    data_manager = DataManager()
+    data_manager = DataManager(foldername=args.data_manager_path)
     test_evaluator, test_dataloader = data_manager.get_test_data("test")
     M = create_grouping_matrix()
     if args.metric == "all":
