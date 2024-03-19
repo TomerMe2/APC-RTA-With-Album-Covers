@@ -58,9 +58,11 @@ You would need to create an account and register to the challenge to do so.
 Then, please unzip all files in a single folder, for instance: `resources/data/raw_MPD`.
 
 Run the following script to pre-process and format the MPD (expected time: around 1 hour on a regular laptop).
-
+The first script doesn't require a GPU. The second script requires a GPU with at least 6GB of memory.
 ```
-python src/format_rta_input --mpd_path PATH/TO/UNZIPPED/MPD
+export PYTHONPATH=.
+python src/format_rta_input.python --mpd_path PATH/TO/UNZIPPED/MPD
+python src/create_initial_embeddings --out_path resources/data
 ```
 
 ## Run Experiments

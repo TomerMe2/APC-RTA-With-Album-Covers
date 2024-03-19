@@ -295,7 +295,3 @@ if __name__ == "__main__":
     with open('%s/tracks_info.json' % args.out_path, 'w') as fp:
         json.dump(tracks_info, fp, indent=4)
     process_album_artist(tracks_info, args.out_path)
-    data_manager = DataManager()
-    print(data_manager.binary_train_set)
-    create_initial_embeddings(data_manager)
-    create_side_embeddings(data_manager)
