@@ -1,7 +1,9 @@
 import json, argparse, os, time, datetime
 
-from src.data_manager.data_manager import DataManager
+import numpy as np
+from clearml import Task
 
+from src.data_manager.data_manager import DataManager
 from src.rta.utils import get_device
 from src.rta.rta_model import RTAModel
 from src.rta.aggregator.gru import GRUNet
@@ -11,7 +13,7 @@ from src.rta.aggregator.base import AggregatorBase
 from src.rta.representer.base_representer import BaseEmbeddingRepresenter
 from src.rta.representer.fm_representer import FMRepresenter
 from src.rta.representer.attention_representer import AttentionFMRepresenter
-import numpy as np
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -23,9 +25,13 @@ if __name__ == "__main__":
                         help="Path to save recos", default="resources/recos")
     parser.add_argument("--models_path", type=str, required=False,
                         help="Path to save models", default="resources/models")
+    parser.add_argument('--data_manager_path', type=str, required=True,
+                        help='Path to the data manager data, the folder should "embeddings" and "data_split" folders.')
+    parser.add_argument('--run_name', type=str, required=False, default="default")
     args = parser.parse_args()
 
-    data_manager = DataManager()
+    Task.init(project_name="Represent-Than-Aggregate-Album-Covers", task_name=args.run_name)
+    data_manager = DataManager(foldername=args.data_manager_path)
     with open(args.params_file, "r") as f:
         p = json.load(f)
 
