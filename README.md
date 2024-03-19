@@ -69,8 +69,8 @@ python src/create_initial_embeddings --out_path resources/data
 
 ### Train RTA models
 
+Training the models requires a GPU with at least 8GB of memory.
 Train the **MF-Transformer** model from the paper:
-
 ```
 python -m src.main --model_name MF-Transformer
 ```
