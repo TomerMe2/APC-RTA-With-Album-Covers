@@ -1,3 +1,4 @@
+from pathlib import Path
 from scipy.sparse import csr_matrix, lil_matrix, load_npz, save_npz
 import numpy as np
 import os
@@ -25,7 +26,13 @@ class DataManager():
         - Gives access to embeddings'''
     N_SEED_SONGS = range(1, 11)  # possible configurations for evaluation
 
-    def __init__(self, foldername="resources/data/", test_size=10000, min_songs_test=10, resplit=False, dim=128):
+    def __init__(self, foldername="resources/data/", test_size=10000, min_songs_test=10, resplit=False, dim=128,
+                 albums_covers_embs_algorithm=None):
+
+        if albums_covers_embs_algorithm is not None:
+            if albums_covers_embs_algorithm not in ['dinov2', 'clip']:
+                raise ValueError("albums_covers_embs_algorithm should be either 'dinov2' or 'clip'")
+
         self.foldername = foldername
         self.test_size = test_size
         self.min_songs_test = min_songs_test
@@ -59,6 +66,11 @@ class DataManager():
         self.binary_train_set = self.get_train_set()
         self.prepare_charts()
         # self.val_input = self.binary_val_set.indices.reshape((self.binary_val_set.shape[0], self.min_songs_test))
+
+        self.track_id_to_album_uri = {track_info['id']: track_info['album_uri'].split(':')[-1]
+                                      for track_info in self.tracks_info.values()}
+        self.album_covers_embs_dir = Path(self.foldername) / "album_covers_embeddings" / albums_covers_embs_algorithm
+        self.album_covers_embs_size = 512 if albums_covers_embs_algorithm == "clip" else 714
 
     def load_playlist_track(self):
         self.playlist_track = load_npz("%s/rta_input/playlist_track.npz" % self.foldername)
