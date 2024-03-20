@@ -61,7 +61,7 @@ if __name__ == '__main__':
                         help='Path to the directory containing PNG images')
     parser.add_argument('--out_path', type=str, required=True,
                         help='Path to the directory to save the embeddings')
-    parser.add_argument('--batch_size', type=str, default=64,
+    parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size for the inference. Default is 64.')
     args = parser.parse_args()
 
