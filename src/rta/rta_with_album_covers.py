@@ -1,8 +1,12 @@
+import time
+
 import numpy as np
 import torch
+from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
-from src.data_manager.data_manager import pad_collate
+from src.data_manager.data_manager import pad_collate_with_album_covers
 from src.rta.rta_model import RTAModel
 from src.rta.sequential_train_dataset_with_album_covers_embeddings import \
     SequentialTrainDatasetWithAlbumCoversEmbeddings
@@ -27,7 +31,7 @@ class RTAWithAlbumCovers(RTAModel):
         train_dataset = SequentialTrainDatasetWithAlbumCoversEmbeddings(self.data_manager, train_indices,
                                                max_size=self.training_params['max_size'],
                                                n_neg=self.training_params['n_neg'])
-        # TODO: REPLACE pad_collate with my collate to match 4 outputs!
+
         train_dataloader = DataLoader(train_dataset, batch_size=self.training_params['batch_size'], shuffle=True,
-                                      collate_fn=pad_collate, num_workers=0)
+                                      collate_fn=pad_collate_with_album_covers, num_workers=5)
         return optimizer, scheduler, train_dataloader

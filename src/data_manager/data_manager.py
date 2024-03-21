@@ -69,8 +69,11 @@ class DataManager():
 
         self.track_id_to_album_uri = {track_info['id']: track_info['album_uri'].split(':')[-1]
                                       for track_info in self.tracks_info.values()}
-        self.album_covers_embs_dir = Path(self.foldername) / "album_covers_embeddings" / albums_covers_embs_algorithm
-        self.album_covers_embs_size = 512 if albums_covers_embs_algorithm == "clip" else 714
+        self.album_covers_embs = torch.Tensor(np.load(Path(self.foldername) / "album_covers_embeddings" / f'{albums_covers_embs_algorithm}_all_embs.npy'))
+        self.album_uri_to_album_emb_idx = {album_uri: idx for idx, album_uri in enumerate(pd.read_csv(
+            Path(self.foldername) / "album_covers_embeddings" / f'album_uris_{albums_covers_embs_algorithm}.csv',
+            header=None, names=['album_uri']
+        )['album_uri'].tolist())}
 
     def load_playlist_track(self):
         self.playlist_track = load_npz("%s/rta_input/playlist_track.npz" % self.foldername)
@@ -314,3 +317,12 @@ def pad_collate(batch):
     x_lens = [len(x) for x in xx]
     xx_pad = pad_sequence(xx, batch_first=True, padding_value=0)
     return xx_pad, torch.stack(list(yy_neg)), torch.LongTensor(list(x_lens))
+
+
+def pad_collate_with_album_covers(batch):
+    # Defines how playlists of different sizes should be turned into a batch using padding
+    (xx, xx_albums_embs, yy_neg, yy_neg_albums_embs) = zip(*batch)
+    x_lens = [len(x) for x in xx]
+    xx_pad = pad_sequence(xx, batch_first=True, padding_value=0)
+    xx_albums_embs_pad = pad_sequence(xx_albums_embs, batch_first=True, padding_value=0)
+    return xx_pad, xx_albums_embs_pad, torch.stack(list(yy_neg)), torch.stack(list(yy_neg_albums_embs)), torch.LongTensor(list(x_lens))
