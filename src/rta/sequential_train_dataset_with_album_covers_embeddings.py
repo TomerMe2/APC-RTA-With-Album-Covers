@@ -36,6 +36,11 @@ class SequentialTrainDatasetWithAlbumCoversEmbeddings(SequentialTrainDataset):
     def get_albums_embs(self, track_ids):
         embs = []
         for track_id in track_ids:
+
+            if track_id not in self.track_id_to_album_uri:
+                embs.append(torch.zeros(self.album_covers_embs.shape[1]))
+                continue
+
             album_uri = self.track_id_to_album_uri[track_id]
 
             if album_uri not in self.album_uri_to_album_emb_idx:
