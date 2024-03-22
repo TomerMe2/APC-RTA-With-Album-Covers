@@ -126,3 +126,9 @@ Please cite our paper if you use this code in your own work:
  year = {2023}
 }
 ```
+
+train:
+```
+python src/train_with_album_covers.py --model_name MF-Transformer --recos_path /home/tomerlao/datasets/APC-RTA/recos --models_path /home/tomerlao/datasets/APC-RTA/models --data_manager_path /home/tomerlao/datasets/APC-RTA/ --albums_covers_embs_algorithm clip
+```
+A GPU with 24GB VRAM and 30GB of RAM is required to run the above command.

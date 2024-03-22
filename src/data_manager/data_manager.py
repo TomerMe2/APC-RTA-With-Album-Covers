@@ -1,4 +1,6 @@
 from pathlib import Path
+
+from tqdm import tqdm
 from scipy.sparse import csr_matrix, lil_matrix, load_npz, save_npz
 import numpy as np
 import os
@@ -74,6 +76,21 @@ class DataManager():
             Path(self.foldername) / "album_covers_embeddings" / f'album_uris_{albums_covers_embs_algorithm}.csv',
             header=None, names=['album_uri']
         )['album_uri'].tolist())}
+        self.songs_album_cover_embs = self.get_songs_album_cover_embs()
+
+    def get_songs_album_cover_embs(self):
+        album_covers_embs = []
+        for track_id in tqdm(range(self.n_tracks), desc="Getting album covers embeddings for each song"):
+            album_uri = self.track_id_to_album_uri[track_id]
+
+            if album_uri not in self.album_uri_to_album_emb_idx:
+                album_covers_embs.append(torch.zeros(self.album_covers_embs.shape[1]))
+                continue
+
+            album_idx = self.album_uri_to_album_emb_idx[album_uri]
+            album_covers_embs.append(self.album_covers_embs[album_idx])
+
+        return torch.stack(album_covers_embs)
 
     def load_playlist_track(self):
         self.playlist_track = load_npz("%s/rta_input/playlist_track.npz" % self.foldername)
@@ -229,6 +246,19 @@ class DataManager():
 
         return test_evaluator, test_dataloader
 
+    def get_test_data_with_album_covers(self, mode, n_recos=500, test_batch_size=50):
+        gt_test = []
+        for i in DataManager.N_SEED_SONGS:
+            gt_test += self.ground_truths[mode][i]
+        test_evaluator = Evaluator(self, gt=np.array(gt_test), n_recos=n_recos)
+        if mode == "test":
+            test_dataset = EvaluationWithAlbumCoversDataset(self, self.test_indices)
+        else:
+            test_dataset = EvaluationWithAlbumCoversDataset(self, self.val_indices)
+        test_dataloader = DataLoader(test_dataset, batch_size=test_batch_size, shuffle=False, num_workers=6)
+
+        return test_evaluator, test_dataloader
+
 
 class negative_sampler(object):
     """A class to speed up negative sampling. Instead of sampling uniformly at every call,
@@ -306,6 +336,25 @@ class EvaluationDataset(Dataset):
         X = self.data[index].indices + 1
         Y = self.data[index].data
         return np.array([x for y, x in sorted(zip(Y, X))][:n_seed])
+
+    def __len__(self):
+        return self.data.shape[0]
+
+
+class EvaluationWithAlbumCoversDataset(Dataset):
+    # This class is used to load either the validation or test set.
+    # for each playlist, X is the beginning and Y is the end.
+    def __init__(self, data_manager, indices):
+        self.data = data_manager.playlist_track[indices]
+        self.songs_album_cover_embs = data_manager.songs_album_cover_embs
+
+    def __getitem__(self, index):
+        n_seed = math.floor(index / 1000) + 1  # select 1000 per value of n_seed
+        X = self.data[index].indices + 1
+        Y = self.data[index].data
+        X_to_ret = np.array([x for y, x in sorted(zip(Y, X))][:n_seed])
+        # they did plus one on the indices, we do minus 1 to get the correct index
+        return X_to_ret, self.songs_album_cover_embs[X_to_ret - 1]
 
     def __len__(self):
         return self.data.shape[0]
