@@ -5,16 +5,16 @@ from src.rta.representer.base_representer import BaseEmbeddingRepresenter
 
 class ConcatAlbumCoverEmbRepresenter(torch.nn.Module):
 
-    def __init__(self, non_album_covers_representor: BaseEmbeddingRepresenter, data_manager):
+    def __init__(self, non_album_covers_representor: BaseEmbeddingRepresenter, adapter_emb_size, data_manager):
         super(ConcatAlbumCoverEmbRepresenter, self).__init__()
         self.non_album_covers_representor = non_album_covers_representor
 
         self.album_cover_emb_adaptor = torch.nn.Sequential(
             torch.nn.Linear(data_manager.album_covers_embs.shape[1], 300),
             torch.nn.ReLU(),
-            torch.nn.Linear(300, 128)
+            torch.nn.Linear(300, adapter_emb_size)
         )
-        self.album_cover_emb_dim = 128
+        self.album_cover_emb_dim = adapter_emb_size
 
     def forward(self, x, album_covers_embs):
         non_album_covers_emb = self.non_album_covers_representor(x)

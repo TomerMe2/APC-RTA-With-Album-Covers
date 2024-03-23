@@ -30,6 +30,7 @@ if __name__ == "__main__":
                         help='Path to the data manager data, the folder should "embeddings" and "data_split" folders.')
     parser.add_argument('--albums_covers_embs_algorithm', type=str, required=True,
                         help='The algorithm used to compute the album covers embeddings. It can be "dinov2" or "clip".')
+    parser.add_argument('--adapter_emb_size', type=int, required=True, help='The size of the adapter embedding')
     parser.add_argument('--run_name', type=str, required=False, default="default")
     parser.add_argument('--debug', action='store_true', help='Debug mode', default=False)
     args = parser.parse_args()
@@ -46,7 +47,7 @@ if __name__ == "__main__":
 
     if args.model_name == "MF-Transformer":
         non_album_covers_representer = BaseEmbeddingRepresenter(data_manager, tr_params['d'])
-        representer = ConcatAlbumCoverEmbRepresenter(non_album_covers_representer, data_manager)
+        representer = ConcatAlbumCoverEmbRepresenter(non_album_covers_representer, args.adapter_emb_size, data_manager)
         aggregator = DecoderModel(embd_size=tr_params["d"] + representer.album_cover_emb_dim,
                                   max_len=tr_params["max_size"],
                                   n_head=tr_params["n_heads"], n_layers=tr_params["n_layers"],
