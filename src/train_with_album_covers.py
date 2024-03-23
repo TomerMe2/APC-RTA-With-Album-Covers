@@ -46,8 +46,9 @@ if __name__ == "__main__":
 
     if args.model_name == "MF-Transformer":
         non_album_covers_representer = BaseEmbeddingRepresenter(data_manager, tr_params['d'])
-        representer = ConcatAlbumCoverEmbRepresenter(non_album_covers_representer)
-        aggregator = DecoderModel(embd_size=tr_params["d"] + album_cover_emb_dim, max_len=tr_params["max_size"],
+        representer = ConcatAlbumCoverEmbRepresenter(non_album_covers_representer, data_manager)
+        aggregator = DecoderModel(embd_size=tr_params["d"] + representer.album_cover_emb_dim,
+                                  max_len=tr_params["max_size"],
                                   n_head=tr_params["n_heads"], n_layers=tr_params["n_layers"],
                                   drop_p=tr_params["drop_p"])
 
@@ -72,7 +73,7 @@ if __name__ == "__main__":
     rta_model = RTAWithAlbumCovers(data_manager, representer, aggregator, training_params=tr_params).to(get_device())
     print("Train model %s" % args.model_name)
 
-    savePath = None if args.debug else "%s/%s" % (args.models_path, args.model_name)
+    savePath = None if args.debug else "%s/%s_%s" % (args.models_path, args.run_name, args.model_name)
 
     start_fit = time.time()
     rta_model.run_training(tuning=False, savePath=savePath)
@@ -85,4 +86,4 @@ if __name__ == "__main__":
     print("Model %s inferred in %s " % (args.model_name, str(end_predict - end_fit)))
 
     os.makedirs(args.recos_path, exist_ok=True)
-    np.save("%s/%s" % (args.recos_path, args.model_name), recos)
+    np.save("%s/%s_%s" % (args.recos_path, args.run_name, args.model_name), recos)

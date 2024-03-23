@@ -5,12 +5,20 @@ from src.rta.representer.base_representer import BaseEmbeddingRepresenter
 
 class ConcatAlbumCoverEmbRepresenter(torch.nn.Module):
 
-    def __init__(self, non_album_covers_representor: BaseEmbeddingRepresenter):
+    def __init__(self, non_album_covers_representor: BaseEmbeddingRepresenter, data_manager):
         super(ConcatAlbumCoverEmbRepresenter, self).__init__()
         self.non_album_covers_representor = non_album_covers_representor
 
+        self.album_cover_emb_adaptor = torch.nn.Sequential(
+            torch.nn.Linear(data_manager.album_covers_embs.shape[1], 300),
+            torch.nn.ReLU(),
+            torch.nn.Linear(300, 128)
+        )
+        self.album_cover_emb_dim = 128
+
     def forward(self, x, album_covers_embs):
         non_album_covers_emb = self.non_album_covers_representor(x)
+        album_covers_embs = self.album_cover_emb_adaptor(album_covers_embs)
         return self.compute_representation_given_sub_representations(non_album_covers_emb, album_covers_embs)
 
     @staticmethod
@@ -28,6 +36,7 @@ class ConcatAlbumCoverEmbRepresenter(torch.nn.Module):
 
     def compute_all_representations(self, album_cover_embs: torch.Tensor):
         non_album_covers_emb = self.non_album_covers_representor.compute_all_representations()
+        album_cover_embs = self.album_cover_emb_adaptor(album_cover_embs)
         zero_emb = torch.zeros(1, album_cover_embs.shape[1], device=non_album_covers_emb.device)
         # to match the pad and mask tokens of the non album covers embs
         album_cover_embs = torch.cat((zero_emb, album_cover_embs, zero_emb), dim=0)
