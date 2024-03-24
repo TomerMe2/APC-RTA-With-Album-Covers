@@ -54,18 +54,18 @@ if __name__ == "__main__":
                                   drop_p=tr_params["drop_p"])
 
     elif args.model_name == "FM-Transformer":
-        # TODO: remove
-        raise ValueError('not supported for album covers yet')
-        representer = FMRepresenter(data_manager, tr_params['d'])
-        aggregator = DecoderModel(embd_size=tr_params["d"], max_len=tr_params["max_size"], n_head=tr_params["n_heads"],
+        non_album_covers_representer = FMRepresenter(data_manager, tr_params['d'])
+        representer = ConcatAlbumCoverEmbRepresenter(non_album_covers_representer, args.adapter_emb_size, data_manager)
+        aggregator = DecoderModel(embd_size=tr_params["d"] + representer.album_cover_emb_dim, max_len=tr_params["max_size"], n_head=tr_params["n_heads"],
                                   n_layers=tr_params["n_layers"], drop_p=tr_params["drop_p"])
 
     elif args.model_name == "NN-Transformer":
-        # TODO: remove
-        raise ValueError('not supported for album covers yet')
-        representer = AttentionFMRepresenter(data_manager, emb_dim=tr_params['d'], n_att_heads=tr_params['n_att_heads'],
-                                             n_att_layers=tr_params["n_att_layers"], dropout_att=tr_params["drop_att"])
-        aggregator = DecoderModel(embd_size=tr_params["d"], max_len=tr_params["max_size"], n_head=tr_params["n_heads"],
+        non_album_covers_representer = AttentionFMRepresenter(data_manager, emb_dim=tr_params['d'],
+                                                              n_att_heads=tr_params['n_att_heads'],
+                                             n_att_layers=tr_params["n_att_layers"],
+                                                              dropout_att=tr_params["drop_att"])
+        representer = ConcatAlbumCoverEmbRepresenter(non_album_covers_representer, args.adapter_emb_size, data_manager)
+        aggregator = DecoderModel(embd_size=tr_params["d"] + representer.album_cover_emb_dim, max_len=tr_params["max_size"], n_head=tr_params["n_heads"],
                                   n_layers=tr_params["n_layers"], drop_p=tr_params["drop_p"])
 
     else:
