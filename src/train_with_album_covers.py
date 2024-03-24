@@ -81,7 +81,7 @@ if __name__ == "__main__":
     end_fit = time.time()
     print("Model %s trained in %s " % (args.model_name, str(end_fit - start_fit)))
 
-    test_evaluator, test_dataloader = data_manager.get_test_data("test")
+    test_evaluator, test_dataloader = data_manager.get_test_data_with_album_covers("test")
     recos = rta_model.compute_recos(test_dataloader)
     end_predict = time.time()
     print("Model %s inferred in %s " % (args.model_name, str(end_predict - end_fit)))

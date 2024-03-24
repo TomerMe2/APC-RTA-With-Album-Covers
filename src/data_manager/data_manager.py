@@ -71,12 +71,14 @@ class DataManager():
 
         self.track_id_to_album_uri = {track_info['id']: track_info['album_uri'].split(':')[-1]
                                       for track_info in self.tracks_info.values()}
-        self.album_covers_embs = torch.Tensor(np.load(Path(self.foldername) / "album_covers_embeddings" / f'{albums_covers_embs_algorithm}_all_embs.npy'))
-        self.album_uri_to_album_emb_idx = {album_uri: idx for idx, album_uri in enumerate(pd.read_csv(
-            Path(self.foldername) / "album_covers_embeddings" / f'album_uris_{albums_covers_embs_algorithm}.csv',
-            header=None, names=['album_uri']
-        )['album_uri'].tolist())}
-        self.songs_album_cover_embs = self.get_songs_album_cover_embs()
+
+        if albums_covers_embs_algorithm is not None:
+            self.album_covers_embs = torch.Tensor(np.load(Path(self.foldername) / "album_covers_embeddings" / f'{albums_covers_embs_algorithm}_all_embs.npy'))
+            self.album_uri_to_album_emb_idx = {album_uri: idx for idx, album_uri in enumerate(pd.read_csv(
+                Path(self.foldername) / "album_covers_embeddings" / f'album_uris_{albums_covers_embs_algorithm}.csv',
+                header=None, names=['album_uri']
+            )['album_uri'].tolist())}
+            self.songs_album_cover_embs = self.get_songs_album_cover_embs()
 
     def get_songs_album_cover_embs(self):
         album_covers_embs = []
