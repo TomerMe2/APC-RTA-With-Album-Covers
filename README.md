@@ -1,34 +1,22 @@
-# A Scalable Framework for Automatic Playlist Continuation on Music Streaming Services
+# Enhancing ”A Scalable Framework for Automatic Playlist Continuation on Music Streaming Services” with Album Covers
 
-This repository provides our Python code to reproduce experiments from the paper **A Scalable Framework for Automatic
-Playlist Continuation on Music Streaming Services**, accepted for publication in the proceedings of the 46th
-International ACM SIGIR Conference on Research and Development in Information
-Retrieval ([SIGIR 2023](https://sigir.org/sigir2023/)).
+This repository is a fork of **A Scalable Framework for Automatic
+Playlist Continuation on Music Streaming Services** by Deezer. The original repository can be found [here](https://github.com/deezer/APC-RTA).
 
-## Automatic Playlist Continuation at Scale
+## Introduce Album Covers
 
-Music streaming services often aim to recommend songs for users to extend the playlists they have created on these
-services. However, extending playlists while preserving their musical characteristics and matching user preferences
-remains a challenging task, commonly referred to as **Automatic Playlist Continuation (APC)**. Besides, while these
-services often need to select the best songs to recommend in real-time and among large catalogs with millions of
-candidates, recent research on APC mainly focused on models with few scalability guarantees and evaluated on relatively
-small datasets.
+To introduce album covers into "A Scalable Framework for Automatic Playlist Continuation on Music Streaming Services",
+we add embeddings of the album covers from CLIP or DINOv2 to the RTA framework.
+We also change the representor models to adapt to this input change.
 
-In this SIGIR 2023 paper, we introduce **a general framework to build scalable yet effective APC models** for
-large-scale applications. Based on a **Represent-Then-Aggregate** strategy, it ensures scalability by design while
-remaining flexible enough to incorporate a wide range of representation learning and sequence modeling techniques, e.g.,
-based on recurrent neural networks or Transformers.
-
-In the paper, we demonstrate the relevance of our framework through an in-depth experimental validation:
-
-* Firstly, we provide **offline experiments** on Spotify's **Million Playlist Dataset (MPD)**, i.e., the largest public
-  dataset for APC. This repository aims to facilitate the reproducibility of these experiments.
-* In addition, we also explain how, in 2022, we successfully leveraged this framework to improve APC in production on
-  the global music streaming service [Deezer](https://www.deezer.com/). We report results from a large-scale **online
-  A/B test** on this service, emphasizing the practical impact of our approach in such a real-world application.
-
+The overview of our method is as follows:
 <p align="center">
-  <img height="325" src="figures/apc.png">
+  <img height="325" src="figures/method_overview.png">
+</p>
+
+The modification to the represntor is as follows:
+<p align="center">
+  <img height="325" src="figures/representor_modification.png">
 </p>
 
 ## Installation
@@ -36,99 +24,94 @@ In the paper, we demonstrate the relevance of our framework through an in-depth 
 ### Code
 
 ```
-git clone https://github.com/deezer/APC-RTA
-cd APC-RTA
+git clone https://github.com/TomerMe2/APC-RTA-With-Album-Covers
+cd APC-RTA-With-Album-Covers
 pip install -r requirements.txt
+clearml-init
 ```
-
-Requirements: implicit==0.6.1, matplotlib==3.6.2, pandas==1.5.2, psutil==5.9.4, pympler==1.0.1, scipy==1.7.3,
-seaborn==0.12.1, tables==3.7.0, tqdm==4.64.1.
 
 ### Data
 
-Please download Spotify's Million Playlist Dataset (MPD)
-on [AIcrowd.com](https://www.aicrowd.com/challenges/spotify-million-playlist-dataset-challenge).
-
-You would need to create an account and register to the challenge to do so.
-
+1. Download Spotify's Million Playlist Dataset (MPD) on [AIcrowd.com](https://www.aicrowd.com/challenges/spotify-million-playlist-dataset-challenge). You would need to create an account and register to the challenge to do so.
 <p align="center">
   <img height="325" src="figures/mpd.png">
 </p>
 
-Then, please unzip all files in a single folder, for instance: `resources/data/raw_MPD`.
-
-Run the following script to pre-process and format the MPD (expected time: around 1 hour on a regular laptop).
+2. Unzip all files in a single folder, for instance: `resources/data/raw_MPD`.
+3. Run the following script to pre-process and format the MPD (expected time: around 1 hour on a regular laptop).
 The first script doesn't require a GPU. The second script requires a GPU with at least 6GB of memory.
 ```
 export PYTHONPATH=.
 python src/format_rta_input.python --mpd_path PATH/TO/UNZIPPED/MPD
 python src/create_initial_embeddings --out_path resources/data
 ```
+4. Go into Spotify's Developer Dashboard and create a new app to get a client ID and a client secret.
+4. run:
+```
+python src/get_album_covers.py --spotify_client_id YOUR_SPOTIFY_CLIENT_ID --spotify_client_secter YOUR_SPOTIFY_CLIENT_SECRET --data_path PATH/TO/UNZIPPED/MPD --output_path ALBUM/COVERS/OUTPUT/PATH --start_from_file 0
+```
+It can get stuck during the run due to the Spotify API rate limit. In this case, you can change the `start_from_file` parameter to the last file that its album covers were downloaded and run the script again. You may want to consider using a different client ID and client secret to avoid the rate limit.
+5. run:
+```
+python src/create_album_covers_embeddings.py --images_dir ALBUM/COVERS/OUTPUT/PATH --out_path ALBUM/COVERS/EMBEDDINGS/OUT/PATH --batch_size 256
+```
+If your run dies with GPU memory error, you can reduce the `batch_size` parameter.
+6. run:
+```
+python src/merge_album_covers_embeddings.py --embeddings_dir ALBUM/COVERS/EMBEDDINGS/OUT/PATH/clip
+python src/merge_album_covers_embeddings.py --embeddings_dir ALBUM/COVERS/EMBEDDINGS/OUT/PATH/dinov2
+```
 
 ## Run Experiments
 
-### Train RTA models
+### Train RTA-With-Album-Covers models
 
-Training the models requires a GPU with at least 8GB of memory.
+Training the models requires a GPU with at least 24GB of memory.
 Train the **MF-Transformer** model from the paper:
 ```
-python -m src.main --model_name MF-Transformer
+python src/train_with_album_covers --model_name FM-Transformer --recos_path resources/recos --models_path resources/models --data_manager_path resources --albums_covers_embs_algorithm clip --adapter_emb_size 64 --run_name fm_clip_emb_size_64 
 ```
-
 Notes:
 
-* To train another model, replace `MF-Transformer` in the above command by the desired model name, as referred to in the
-  paper.
+* To train another model, replace `FM-Transformer` in the above command with `MF-Transformer` or `NN-Transformer`.
+* To use another album covers embeddings algorithm, replace `clip` in the above command with `dinov2`.
 * The complete list of parameters for each model is available in `resources/params/best_params_rta.json`.
-* Training can be interrupted at any time. An intermediary model is saved at every epoch.
+* The `run_name` parameter is used to save the run logs in ClearML.
 
-### Evaluate RTA models
+### Evaluate RTA-With-Album-Covers models
 
-Compute the **NDCG** score for the **MF-Transformer** model:
+To compute all the metrics as shown in our report, run:
 
 ```
-python -m src.plot_results --metric ndcg --models MF-Transformer
+python src/compute_all_metrics --recos_paths resources/recos/FM-Transformer_dinov2_64_FM-Transformer.npy --data_manager_path resources
 ```
 
 Notes:
+* To evaluate another model, replace the `recos_path` with the path of the recos of the model that you want to evaluate.
 
-* To evaluate another model, replace `MF-Transformer` in the above command by the desired model name, as referred to in
-  the paper. You can plot results for several models on the same figure by separating their names with commas.
-* To compute another score, replace `ndcg` in the above command by the desired score name, as referred to in the paper.
+## Results
+| Models                                           | Precision (%) | Recall (%) | R-Precision (%) | NDCG (%) | Clicks | Popularity (%) | Coverage (%) |
+|--------------------------------------------------|---------------|------------|------------------|----------|--------|----------------|--------------|
+| MF-Transformer as reported in the original paper | 5.20 ± 0.09 | 39.76 ± 0.47 | 22.30 ± 0.28 | 29.04 ± 0.38 | 2.60 ± 0.17 | 10.46 ± 0.13 | 5.35 |
+| MF-Transformer reproduced                        | **5.21 ± 0.09** | **39.78 ± 0.47** | **22.34 ± 0.28** | **29.09 ± 0.38** | 2.57 ± 0.17 | 10.63 ± 0.13 | 5.20 |
+| CLIP-MF-Transformer                              | 5.07 ± 0.09 | 38.96 ± 0.47 | 21.79 ± 0.27 | 28.33 ± 0.37 | **2.48 ± 0.16** | **9.63 ± 0.12** | **6.49** |
+| DINOv2-MF-Transformer                            | 5.1 ± 0.09 | 39.15 ± 0.47 | 22.01 ± 0.27 | 28.62 ± 0.37 | 2.59 ± 0.17 | 9.72 ± 0.12 | 5.61 |
+|                                                  ||||||||
+| FM-Transformer as reported in the original paper | 5.31 ± 0.09 | 40.46 ± 0.47 | 22.29 ± 0.27 | 29.21 ± 0.37 | 2.52 ± 0.17 | **11.74 ± 0.13** | 10.18 |
+| FM-Transformer reproduced                        | **5.34 ± 0.09** | **40.7 ± 0.47** | **22.42 ± 0.27** | **29.33 ± 0.37** | 2.42 ± 0.16 | 12.03 ± 0.13 | 10.24 |
+| CLIP-FM-Transformer                              | 5.28 ± 0.09 | 40.2 ± 0.47 | 22.06 ± 0.27 | 28.86 ± 0.37 | **2.32 ± 0.15** | 11.77 ± 0.13 | 10.64 |
+| DINOv2-FM-Transformer                            | 5.27 ± 0.09 | 40.15 ± 0.47 | 22.03 ± 0.27 | 28.85 ± 0.36 | 2.48 ± 0.16 | 11.89 ± 0.13 | **10.98** |
+|                                                  ||||||||
+| NN-Transformer as reported in the original paper | **5.26 ± 0.09** | **40.17 ± 0.47** | 21.18 ± 0.27 | **29.14 ± 0.37** | **2.17 ± 0.15** | 10.33 ± 0.13 | 11.81 |
+| NN-Transformer reproduced                        | 5.11 ± 0.09 | 39.13 ± 0.47 | 21.54 ± 0.27 | 28.3 ± 0.37 | 2.34 ± 0.15 | 9.34 ± 0.13 | **16.29** |
+| CLIP-NN-Transformer                              | 5.09 ± 0.09 | 39.01 ± 0.47 | 21.52 ± 0.27 | 28.27 ± 0.37 | 2.39 ± 0.15 | **9.26 ± 0.12** | 15.85 |
+| DINOv2-NN-Transformer                            | 5.13 ± 0.09 | 39.33 ± 0.47 | **21.74 ± 0.27** | 28.54 ± 0.37 | 2.24 ± 0.15 | 9.64 ± 0.13 | 16.06 |
 
-### Train and evaluate baselines
+## Conclusions
+We improve the Clicks metric for MF and FM models. <br/>
+We improve the populairty and coverage metrics for the MF model, and only the coverage metric for the FM model. <br/>
+We couldn't reproduce the results of the NN model corretly, even though we used the same code of the original paper. <br/>
+Our method negatively impacts accuracy oriented metrics that are not Clicks.
+We argue that Clicks is the most important accuracy oriented metric since this is what a user will feel when using the playlist continuation feature in music streaming services. <br/>
 
-Format the MPD to comply with baseline models:
-
-```
-python -m src.format_baseline_input --mpd_path /PATH/TO/UNZIPPED/MPD
-```
-
-Train the **VSKNN** model from the paper:
-
-```
-python -m run_baselines --model_name VSKNN
-```
-
-After training, baseline models can be evaluated using the same script as for RTA models (see the above command
-for `src.plot_results`).
-The above notes on model/score names and changes remain valid.
-
-## Cite
-
-Please cite our paper if you use this code in your own work:
-
-```BibTeX
-@inproceedings{bendada2023scalable,
- title = {A Scalable Framework for Automatic Playlist Continuation on Music Streaming Services},
- author = {Bendada, Walid and Salha-Galvan, Guillaume and Bouab\c{c}a, Thomas and Cazenave, Tristan},
- booktitle = {Proceedings of the 46th International ACM SIGIR Conference on Research and Development in Information Retrieval},
- year = {2023}
-}
-```
-
-train:
-```
-python src/train_with_album_covers.py --model_name MF-Transformer --recos_path /home/tomerlao/datasets/APC-RTA/recos --models_path /home/tomerlao/datasets/APC-RTA/models --data_manager_path /home/tomerlao/datasets/APC-RTA/ --albums_covers_embs_algorithm clip
-```
-A GPU with 24GB VRAM and 30GB of RAM is required to run the above command.
+More information can be found in our [report](APC_RTA_with_album_covers_report.pdf).
