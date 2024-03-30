@@ -115,3 +115,6 @@ Our method negatively impacts accuracy oriented metrics that are not Clicks.
 We argue that Clicks is the most important accuracy oriented metric since this is what a user will feel when using the playlist continuation feature in music streaming services. <br/>
 
 More information can be found in our [report](APC_RTA_with_album_covers_report.pdf).
+
+## Acknowledgements
+This project was done as part of the course "Advanced Topics in Recommendation Systems" at Ben Gurion University, taught by Prof. Bracha Shapira. <br/>
