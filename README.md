@@ -56,6 +56,7 @@ It can get stuck during the run due to the Spotify API rate limit. In this case,
 python src/create_album_covers_embeddings.py --images_dir ALBUM/COVERS/OUTPUT/PATH --out_path ALBUM/COVERS/EMBEDDINGS/OUT/PATH --batch_size 256
 ```
 If your run dies with GPU memory error, you can reduce the `batch_size` parameter.
+
 6. run:
 ```
 python src/merge_album_covers_embeddings.py --embeddings_dir ALBUM/COVERS/EMBEDDINGS/OUT/PATH/clip
@@ -110,7 +111,7 @@ Notes:
 ## Conclusions
 We improve the Clicks metric for MF and FM models. <br/>
 We improve the populairty and coverage metrics for the MF model, and only the coverage metric for the FM model. <br/>
-We couldn't reproduce the results of the NN model corretly, even though we used the same code of the original paper. <br/>
+We couldn't reproduce the results of the NN model correctly, even though we used the same code of the original paper. <br/>
 Our method negatively impacts accuracy oriented metrics that are not Clicks.
 We argue that Clicks is the most important accuracy oriented metric since this is what a user will feel when using the playlist continuation feature in music streaming services. <br/>
 
